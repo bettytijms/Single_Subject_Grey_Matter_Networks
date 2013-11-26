@@ -1,0 +1,3 @@
+/data/projects/c1_subject1.nii ( .img is also possible)
+/data/projects/c1_subject2.nii
+etc.
