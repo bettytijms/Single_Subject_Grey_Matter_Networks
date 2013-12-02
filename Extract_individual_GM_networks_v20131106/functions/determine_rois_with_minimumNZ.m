@@ -91,8 +91,6 @@ end
 nz=all_nz(mj,1);
 nan_count=all_nz(mj,2);
 
-mj=2;
-
 % Get the corresponding off_set and srote this too.
 off_set=CN_a2(mj);
 
