@@ -28,10 +28,10 @@
 % - nz = number of cubes (i.e., size of the network)
 % - nancount = number of cubes that have standard deviation of 0. (these are excluded from further calculations)
 % - off_set = the template used to extract the minimum number of cubes.
-% - bind.m (in single precision): this file contains the indices of the cubes that contain grey matter values
-% - rois.m and rrois.m (in single precision): these files contain the cubes
-% - lookup.m and rlookup.m : provide the link between the cubes from rois and rrois and the original scans (bind). These files are needed later when results are written in images (e.g., the degree or clustering values of the cubes).
-% - rotcorr and rrcorr (in single precision) are the correlation matrices maximised for with reflection over all angles and rotation with multiples of 45degrees.
+% - bind.mat (in single precision): this file contains the indices of the cubes that contain grey matter values
+% - rois.mat and rrois.mat (in single precision): these files contain the cubes
+% - lookup.mat and rlookup.mat : provide the link between the cubes from rois and rrois and the original scans (bind). These files are needed later when results are written in images (e.g., the degree or clustering values of the cubes).
+% - rotcorr.mat and rrcorr.mat (in single precision) are the correlation matrices maximised for with reflection over all angles and rotation with multiples of 45degrees.
 % - th = threshold to binarise the matrices: corresponds to the correlation value where in the random image 
 % - fp = percentage of positive random correlations
 % - sp = sparsity of the matrix with threshold p_corrected = 0.05
@@ -113,8 +113,8 @@ for im=1:numimages
 	Sa=spm_read_vols(Va);
 
 	% Save them in the current directory
-	save Va.m Va
-	save Sa.m Sa
+	save Va.mat Va
+	save Sa.mat Sa
 
 	% clear variables that aren't needed anymore
 	clear this_scan P Q f flags
@@ -123,12 +123,12 @@ for im=1:numimages
 	[nz, nan_count, off_set] = determine_rois_with_minimumNZ(CN_a2, bl_dir, n, Sa, t_result_dir);
 
 	% Store nz.m : the number of cubes, this is the size of the network
-	save data/nz.m nz
+	save data/nz.mat nz
 
 	% nan_count = number of cubes that have a variance of 0, these are excluded because cannot compute correlation coefficient for these cubes.
-	save data/nan_count.m nan_count
+	save data/nan_count.mat nan_count
 	% off_set indicates which specific template was used to get the cubes.
-	save data/off_set.m off_set
+	save data/off_set.mat off_set
 
 	% Get bind and store bind too. Bind contains the indices of the cubes, so we can efficiently do computations later. It is a long vector of which every 27 consecutive voxels are a cube.
 	%tt=strcat(bl_dir, off_set, '/data/bind.m');
@@ -137,7 +137,7 @@ for im=1:numimages
 	% Convert to single, for memory reasons
 	bind=single(bind);
 	delete data/bind.m
-	save data/bind.m bind	
+	save data/bind.mat bind	
 
 	% Now create:
 	% - the rois: This is a matrix of which each column corresponds to a cube, we will compute use this to compute the correlations
@@ -161,9 +161,9 @@ for im=1:numimages
 	
 
 	% Save the rois and lookup table
-	save data/rois.m rois
+	save data/rois.mat rois
 	% look up table --> to go from corr index to bind to Sa
-	save data/lookup.m lookup
+	save data/lookup.mat lookup
 
 	%clear unneeded variables
 	clear lookup lb 
@@ -172,8 +172,8 @@ for im=1:numimages
 	[rrois, rlookup]= create_rrois (rois, n, Sa, Va, off_set, bind, bl_dir, nz);
 
 	% save rrois and rlookup
-	save data/rrois.m rrois
-	save data/rlookup.m rlookup
+	save data/rrois.mat rrois
+	save data/rlookup.mat rlookup
 
 	% Remove all variables that take space and aren't needed anymore
 	clear bind lookup rlookup Sa Va
@@ -184,8 +184,8 @@ for im=1:numimages
 	[rotcorr, rrcorr] = fast_cross_correlation(rois, rrois, n,forty);
 	
 	% Save it
-	save data/rotation/rotcorr.m rotcorr
-	save data/rotation/rrcorr.m rrcorr
+	save data/rotation/rotcorr.mat rotcorr
+	save data/rotation/rrcorr.mat rrcorr
 
 	%% Now get the threshold and save it
 	[th, fp, sp] = auto_threshold(rotcorr, rrcorr, nz);
@@ -193,9 +193,9 @@ for im=1:numimages
 	% Add this threshold to all_th
 	%all_th(im,:)=[th,fp,sp];
 	%save this and get later
-	save data/th.m th
-	save data/fp.m fp
-	save data/sp.m sp
+	save data/th.mat th
+	save data/fp.mat fp
+	save data/sp.mat sp
 
 	% Clear all variables
 	clear rotcorr rrcorr th fp sp
