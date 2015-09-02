@@ -4,7 +4,11 @@ Single_Subject_Grey_Matter_Networks
 Matlab scripts that extract single subject grey matter networks from grey matter segmented T1 weighted images
 % READ_ME.txt: About contents Extract_individual_GM_networks
 %
-% Author: Betty Tijms, 2012. Version 20131106
+% Author: Betty Tijms, 2012. Version 20150902
+
+% UPDATE NOTE
+
+% The batch_extract_networks file is altered to ensure alignment with MNI space. Please use the scripts from the folder with version number 20150902
 
 General:
 
