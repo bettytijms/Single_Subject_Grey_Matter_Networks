@@ -1,0 +1,226 @@
+% Batch script: Extracts networks from grey matter segmentations.
+%	Network analyses is done with other scripts.
+%
+% Depends on:
+% - the matlab nifti toolbox, download from: www/mathworks.com/matlabcentral/fileexchange/8797-tools-for-nifti-and-analyze-image
+% - the output created with the 'create_cube_template.m script'.
+% - SPM5 or SPM8 imcalc function
+% - the functions that live in the "ALl_network_scripts" dir:
+%	- determine_rois_with_minimum_nz : Determines which template extracts networks of minimum size.
+%	- create_rrois : Permutes all the values in the scan.
+%	- fast_cross_correlation: Computes the correlation matrices 
+%
+% PLEASE ADJUST the following lines:
+% - line 43: add the path to the directory where you want to store the results
+% - line 46: add the full path to the directory were All_network_scripts/functions/ live.
+% - line 49: add the full path + file name of the txt file that contains the dir+names of all the scans (1 line per scan)
+% - line 52: add the full path of the directory were the resliced images need to be written to.
+% - line 55: add the full path of the directory where the spm canonical brain lives.
+% - line 58: add the full path of the directory where /bl_ind directory lives, this directory contains the cube templates (output from 'create_cube_template.m')
+%
+%
+%
+% Output (stored in the subject directory unless specified otherwise):
+% - iso2mm_s (subject number) .img : resliced images (this is stored in designated directory)
+% - creates a directory for each subject (1:n). 
+% - Sa = 3D volume that contains the MRI data in a matrix form
+% - Va = header file that contains the scan info
+% - nz = number of cubes (i.e., size of the network)
+% - nancount = number of cubes that have standard deviation of 0. (these are excluded from further calculations)
+% - off_set = the template used to extract the minimum number of cubes.
+% - bind.mat (in single precision): this file contains the indices of the cubes that contain grey matter values
+% - rois.mat and rrois.mat (in single precision): these files contain the cubes
+% - lookup.mat and rlookup.mat : provide the link between the cubes from rois and rrois and the original scans (bind). These files are needed later when results are written in images (e.g., the degree or clustering values of the cubes).
+% - rotcorr.mat and rrcorr.mat (in single precision) are the correlation matrices maximised for with reflection over all angles and rotation with multiples of 45degrees.
+% - th = threshold to binarise the matrices: corresponds to the correlation value where in the random image 
+% - fp = percentage of positive random correlations
+% - sp = sparsity of the matrix with threshold p_corrected = 0.05
+%
+% Author: Betty Tijms, 2011, version 12.08.2013
+% -------------------------------------------------------------------------------------------------------------------------------
+
+%cd /usr/local/MATLAB/R2011a/bin/
+matlab -nodesktop
+
+% --- ADJUST FOLLOWING ----%
+% Go to the directory where you want to store your output (i.e., networks)
+result_dir ='/ENTER_PATH_NAME_HERE/results'; 
+cd result_dir
+
+% FILL IN THE FILE NAME with full path that contains the text file with all the grey matter segmentations 
+[CN_a1]=textread('/ENTER_PATH_NAME_HERE/grey_matter_segmentation_name_file.txt','%s');
+
+% FILL IN THE FILE NAME with full path that contains the text file with all the original T1 weighted images live 
+% NB Please make sure that this is in the identical subject order as CN_a1
+[CN_a3]=textread('/ENTER_PATH_NAME_HERE/T1_weighted_images_name_file.txt','%s');
+
+% FILL IN THE FULL PATH of the directory where the resliced images should live.
+reslice_dir = '/ENTER_PATH_NAME_HERE/reslice/';
+
+% Add the path to the Nifti toolbox (see read me file for download link)
+addpath /ENTER_PATH_NAME_HERE/ENTER_NAME_OF_NIFTI_TOOLBOX_HERE/
+
+% PATH where the canonical SPM image "avg305T1.nii´ can be found --> this is used to reslice the images
+P1= '/ENTER_PATH_TO_SPM/spm8/canonical/avg305T1.nii';
+
+% Please provide path to the folder Extract_individual_GM_networks
+all_network_scripts_path ='/ENTER_PATH_HERE/Extract_individual_GM_networks_v20131106/';
+
+% Please provide path to the folder bl_ind
+bl_dir = '/home/jagust/share/connect/networks_struct/Extract_individual_GM_networks_v20131106/bl_ind/';
+
+
+%% -----Finished with the adjustments ---%
+
+% add path to the functions in All_network_scripts folder
+addpath(strcat(all_network_scripts_path,'functions'))
+
+% Get content of all_dirs.txt files ( this file contains all the dirs of the cube template for all possible off set values)
+CN_a2 =textread(strcat(bl_dir, 'all_dirs.txt'),'%s');
+
+% end of loop
+numimages=size(CN_a1,1);
+
+% number of dimensions
+n=3;
+s=n^3;
+
+% Loop through all the grey matter segmentations listed in CN_a1 and extract network. Takes ~25 minutes per scan.
+
+for im=1:numimages	
+	% Get this scan and do the following loop to threshold and then reslice it
+	this_scan=char(CN_a1(im));
+	t1_scan= char(CN_a3(im));
+	
+	% make the directory for this subject
+	mkdir(strcat('s', int2str(im),'/data/rotation/'))
+	mkdir(strcat('s', int2str(im),'/images/'))
+	
+	% Go to this directory
+	cd(strcat('s', int2str(im)))
+	
+	% make a temporary copy of the grey matter segmentation in this directory
+	copyfile(this_scan, 'temp_grey.nii')
+	
+	% which directory are we now?
+	t_result_dir = strcat(result_dir, '/s',int2str(im));
+	
+	% Make sure that the native image realigns with MNI images
+	coreg_est = spm_coreg(P1, t1_scan);
+	M = inv(spm_matrix(coreg_est));
+	MM = spm_get_space('temp_grey.nii); %adjust the header of the grey matter image to store these realigned parameters
+	spm_get_space('temp_grey.nii', M *MM);
+	
+	% save the reorientation paramters
+	save /images/coreg_est.mat coreg_est
+	
+%  	%% Next reslice the scan to 2x2x2 mm isotropic voxels to reduce amount of data.
+  	P = strvcat(P1, 'temp_grey.nii');
+  	Q = strcat(reslice_dir,'/iso2mm_s', num2str(im), '.nii');
+  	f = 'i2';
+  	flags = {[],[],[],[]};
+  	R = spm_imcalc_ui(P,Q,f,flags);
+%  
+%  	%close the figure window
+ 	close
+ 	
+ 	% remove the temporary grey matter image
+ 	delete('temp_grey.nii')
+
+%	%% Now extract Sa and Va --> Va contains all the info from the .hrd file, Sa is the actual image, it contains the grey matter intensity values.
+	Va=spm_vol(strcat(reslice_dir, '/iso2mm_s', num2str(im), '.nii'));
+	Sa=spm_read_vols(Va);
+
+	% Save them in the current directory
+	save Va.mat Va
+	save Sa.mat Sa
+
+	% clear variables that aren't needed anymore
+	clear this_scan P Q R f flags
+
+	%% Get the off_set bl_ind (this corresponds to the indices that make up the 3d cubes)  with the minimum number if cubes (min. nz).
+	[nz, nan_count, off_set] = determine_rois_with_minimumNZ(CN_a2, bl_dir, n, Sa, t_result_dir);
+
+	% Store nz.m : the number of cubes, this is the size of the network
+	save data/nz.mat nz
+
+	% nan_count = number of cubes that have a variance of 0, these are excluded because cannot compute correlation coefficient for these cubes.
+	save data/nan_count.mat nan_count
+	% off_set indicates which specific template was used to get the cubes.
+	save data/off_set.mat off_set
+
+	% Get bind and store bind too. Bind contains the indices of the cubes, so we can efficiently do computations later. It is a long vector of which every 27 consecutive voxels are a cube.
+	%tt=strcat(bl_dir, off_set, '/data/bind.m');
+	load data/bind.m
+	
+	% Convert to single, for memory reasons
+	bind=single(bind);
+	delete data/bind.m
+	save data/bind.mat bind	
+
+	% Now create:
+	% - the rois: This is a matrix of which each column corresponds to a cube, we will compute use this to compute the correlations
+	% - lookup table --> to lookup the cubes that correspond to the correlations.
+	
+	lb=length(bind); % End point for loop
+	col=1;		% iteration counter
+		
+	rois=zeros(s,nz, 'single');	% Create variable to store the rois (i.e., cubes)
+	lookup=zeros(s,nz, 'single');	% Create variable to store the lookup table --> this table links the cubes to the indices in the original iso2mm image. 
+	
+	% The next loop gos through bind for indices of voxels that belong to each ROI (i.e. cube)
+	% lb is the last voxel that belongs to a roi
+	%lookup is lookup table to go from corr index to bind to Sa
+	
+	for i=1:s:lb	
+		rois(:,col)=Sa(bind(i:(i+(s-1))));
+		lookup(:,col)=i:(i+(s-1));
+		col=col+1;
+	end
+	
+
+	% Save the rois and lookup table
+	save data/rois.mat rois
+	% look up table --> to go from corr index to bind to Sa
+	save data/lookup.mat lookup
+
+	%clear unneeded variables
+	clear lookup lb 
+
+	%% Randomise ROIS: Create a 'random brain' to estimate the threshold with for later stages
+	[rrois, rlookup]= create_rrois (rois, n, Sa, Va, off_set, bind, bl_dir, nz);
+
+	% save rrois and rlookup
+	save data/rrois.mat rrois
+	save data/rlookup.mat rlookup
+
+	% Remove all variables that take space and aren't needed anymore
+	clear bind lookup rlookup Sa Va
+	
+	% Set the following variable to 2 when correlation is maximised for rotation with angle multiples of 45degrees.
+	forty=2;
+
+	[rotcorr, rrcorr] = fast_cross_correlation(rois, rrois, n,forty);
+	
+	% Save it
+	save data/rotation/rotcorr.mat rotcorr
+	save data/rotation/rrcorr.mat rrcorr
+
+	%% Now get the threshold and save it
+	[th, fp, sp] = auto_threshold(rotcorr, rrcorr, nz);
+
+	% Add this threshold to all_th
+	%all_th(im,:)=[th,fp,sp];
+	%save this and get later
+	save data/th.mat th
+	save data/fp.mat fp
+	save data/sp.mat sp
+
+	% Clear all variables
+	clear rotcorr rrcorr th fp sp
+
+
+	cd ..
+	im
+
+end
