@@ -45,7 +45,7 @@ matlab -nodesktop
 % --- ADJUST FOLLOWING ----%
 % Go to the directory where you want to store your output (i.e., networks)
 result_dir ='/ENTER_PATH_NAME_HERE/results'; 
-cd result_dir
+cd(result_dir)
 
 % FILL IN THE FILE NAME with full path that contains the text file with all the grey matter segmentations 
 [CN_a1]=textread('/ENTER_PATH_NAME_HERE/grey_matter_segmentation_name_file.txt','%s');
@@ -112,7 +112,7 @@ for im=1:numimages
 	spm_get_space('temp_grey.nii', M *MM);
 	
 	% save the reorientation paramters
-	save /images/coreg_est.mat coreg_est
+	save images/coreg_est.mat coreg_est
 	
 %  	%% Next reslice the scan to 2x2x2 mm isotropic voxels to reduce amount of data.
   	P = strvcat(P1, 'temp_grey.nii');
