@@ -119,7 +119,7 @@ for im=1:numimages
   	Q = strcat(reslice_dir,'/iso2mm_s', num2str(im), '.nii');
   	f = 'i2';
   	flags = {[],[],[],[]};
-  	R = spm_imcalc_ui(P,Q,f,flags);
+  	R = spm_imcalc_ui(P,Q,f,flags); % Note if you use SPM12: change spm_imcalc_ui into --> spm_imcalc
 %  
 %  	%close the figure window
  	close
